@@ -650,6 +650,8 @@ components:
           properties:
             likes:    { type: integer, format: int32 }
             comments: { type: integer, format: int32 }
+        reactions:
+            $ref: '#/components/schemas/ReactionBreakdown'
 
     Comment:
       type: object
@@ -721,6 +723,8 @@ components:
           type: integer
           nullable: true
           description: "null | 1 | 2 | 3"
+        reactions:
+          $ref: '#/components/schemas/ReactionBreakdown'
     CommentCreate:
       type: object
       required: [ post_id, text ]
@@ -775,3 +779,16 @@ components:
         code: { type: string, example: INTERNAL_ERROR }
         message: { type: string, example: Unexpected error }
         trace_id: { type :string, description: Корреляция для логов }
+    ReactionBreakdown:
+      type: object
+      properties:
+        counts:
+          type: object
+          properties:
+            '1': { type: integer, description: like/heart }
+            '2': { type: integer }
+            '3': { type: integer }
+        my_reaction:
+          type: integer
+          nullable: true
+          description: "null | 1 | 2 | 3"

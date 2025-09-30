@@ -32,7 +32,7 @@
 | **Компонент** | **Операций/день** | **RPS** | **Метаданные** | **API-трафик/день** | **Медиа**          | **Media-трафик/день** |
 |---------------|------------------:|--------:|----------------|--------------------:|--------------------|----------------------:|
 | Лента (GET)   |        50 000 000 |     579 | 30 KB          |            ~1.50 TB | 20 превью × 150 KB |               ~150 TB |
-| Посты (POST)  |         1 000 000 |      12 | 4.4 KB         |            ~0.44 GB | 1 фото × 1 MB      |               ~100 GB |
+| Посты (POST)  |         1 000 000 |      12 | 4.4 KB         |              ~44 GB | 1 фото × 1 MB      |                 ~1 TB |
 | Комментарии   |         1 800 000 |      21 | 2 KB           |             ~3.6 GB | –                  |                     – |
 | Реакции       |         4 500 000 |      52 | 40 B           |            ~0.18 GB | –                  |                     – |
 | **ИТОГО**     |                 – | **653** | –              |        **~1.51 TB** | –                  |         **~150.1 TB** |
@@ -108,4 +108,52 @@
   }
 }
 
+```
+
+### Модель хранения данных
+![модель](/diagrams/ССДП%20домашка%203.svg)
+#### Расчет сколько потребуется дисков для хранения и обработки всех данных приложения на 1 год
+```
+Replicatio Factor = 3 
+Service operation time = 1 years
+
+feed:
+    Disks_for_capacity = 0 (лента не хранит)
+    Disks_for_throughput = 18 MB/S / 100 MB/S = 1 
+    Disks_for_iops = 579 / 100 = 6
+    rf = 18 дисков 
+feeds(media):
+    dick = SSD (SATA) 100TB (1000 IOPS 500MB/s)  
+    capacity = 54.75 PB 
+    Disks_for_capacity = 54.75 / 100 = 548
+    Disks_for_throughput = 1737  / 500 MB/s = 4 
+    Disks_for_iops = 579 / 1000 = 1
+    rf = 1644 диска      
+poosts:
+    capacity = 4.4 * 1.6 TB 
+    Disks_for_capacity = 1.6 / 2 = 1
+    Disks_for_throughput = 51KB/s / 100 MB/s = 1 
+    Disks_for_iops = 12/ 100 = 1
+    rf = 3 диска
+poosts(media):
+    dick = SSD (SATA) 100TB (1000 IOPS 500MB/s)  
+    capacity = 365 TB 
+    Disks_for_capacity = 4
+    Disks_for_throughput = 1
+    Disks_for_iops = 1
+    rf = 12 диска  
+    
+comments: 
+    capacity = 1.3 TB 
+    Disks_for_capacity = 1.3 / 2 = 1
+    Disks_for_throughput = 42KB/s / 100 MB/s = 1 
+    Disks_for_iops = 21/ 100 = 1
+    rf = 3 диска   
+    
+comments: 
+    capacity = 0.065 TB 
+    Disks_for_capacity = 0.065 / 2 = 1
+    Disks_for_throughput = 2KB/s / 100 MB/s = 1 
+    Disks_for_iops = 52/ 100 = 1
+    rf = 3 диска     
 ```

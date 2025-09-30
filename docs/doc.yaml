@@ -1,0 +1,794 @@
+openapi: 3.0.0
+
+info:
+  version: 1.0.0
+  title: Социальная сеть для путешественников (ССДП)
+  description: |-
+    - публикация постов с фото и гео;
+    - оценки/комментарии;
+    - подписки;
+    - лента по подпискам;
+    - поиск по гео.
+
+servers:
+  - url: https://localhost:80
+
+security:
+  - jwt_auth: []
+
+tags:
+  - name: publication
+    description: Operations with travel posts
+  - name: feed
+    description: Access to user feeds
+  - name: comment
+    description: Operations with post comments
+  - name: reaction
+    description: Operations with post reactions
+  - name: auth
+    description: Authentication
+
+
+paths:
+  /publications:
+    post:
+      tags: [ publication ]
+      security:
+        - jwt_auth: []
+      summary: Create new publication
+      description: Создать пост с описанием, гео и фото
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Publication'
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /publications/{post_id}:
+    put:
+      tags: [ publication ]
+      security:
+        - jwt_auth: []
+      summary: Update my publication
+      parameters:
+        - in: path
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Publication'
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '404': { description: Not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+      tags: [ publication ]
+      security:
+        - jwt_auth: []
+      summary: Delete my publication
+      parameters:
+        - in: path
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+        '401': { description: Unauthorized }
+        '404': { description: Not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /feeds:
+    get:
+      tags: [ feed ]
+      summary: Show feed
+      description: Feed - list of publications by follows (offset pagination).
+      security:
+        - jwt_auth: [ ]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, format: int32, default: 20, minimum: 1, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, format: int32, default: 0, minimum: 0 }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: Text search query
+        - name: order
+          in: query
+          schema: { type: string, enum: [ desc, asc ], default: desc }
+          description: Sort direction for created_at
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPage'
+        '401': { description: Unauthorized }
+        '400': { description: Invalid params }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/login:
+    post:
+      tags: [ auth ]
+      security: [ ]
+      summary: Login with username/password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+        '401': { description: Invalid credentials }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/refresh:
+    post:
+      tags: [ auth ]
+      security: [ ]   # публично
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRefreshRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+        '401': { description: Invalid refresh token }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/logout:
+    post:
+      tags: [ auth ]
+      security:
+        - jwt_auth: [ ]
+      summary: Revoke current session
+      responses:
+        '204': { description: No Content }
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /comments:
+    get:
+      security: [ ]
+      tags: [ comment ]
+      summary: List comments by post
+      parameters:
+        - in: query
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Comment' }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '400': { description: Bad request }
+    post:
+      tags: [ comment ]
+      security:
+        - jwt_auth: []
+      summary: Create comment
+      description: Оставить комментарий к посту
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          description: Ключ идемпотентности для безопасного ретрая
+          schema: { type: string, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '404': { description: Post not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /comments/{comment_id}:
+    put:
+      tags: [ comment ]
+      security:
+        - jwt_auth: []
+      summary: Update my comment
+      parameters:
+        - in: path
+          name: comment_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '404': { description: Comment not found }
+        '409': { description: Conflict }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+      tags: [ comment ]
+      security:
+        - jwt_auth: []
+      summary: Delete my comment
+      parameters:
+        - in: path
+          name: comment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+        '401': { description: Unauthorized }
+        '404': { description: Comment not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /reactions:
+    get:
+      tags: [ reaction ]
+      security: [ ]
+      summary: List reactions by post
+      parameters:
+        - in: query
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: type
+          required: false
+          schema: { type: integer, enum: [ 1,2,3 ] }
+          description: Фильтр по типу реакции
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReactionsPage'
+        '400': { description: Bad request }
+        '404': { description: Post not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      security:
+        - jwt_auth: [ ]
+      tags: [ reaction ]
+      summary: Set/replace my reaction for post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ post_id, type ]
+              properties:
+                post_id: { type: string, format: uuid }
+                type: { type: integer, enum: [ 1,2,3 ] }
+      responses:
+        '204': { description: No Content }
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+      security:
+        - jwt_auth: [ ]
+      tags: [ reaction ]
+      summary: Remove my reaction for post
+      parameters:
+        - in: query
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: No Content }
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /reactions/summary:
+    get:
+      tags: [ reaction ]
+      security: [ ]
+      summary: Get reactions summary by post
+      parameters:
+        - in: query
+          name: post_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReactionSummary'
+        '404': { description: Post not found }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /subscriptions/{user_id}:
+    post:
+      tags: [ feed ]
+      security:
+        - jwt_auth: [ ]
+      summary: Follow user
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: No Content }
+        '401': { description: Unauthorized }
+        '404': { description: User not found }
+        '409': { description: Already followed }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+      tags: [ feed ]
+      security:
+        - jwt_auth: [ ]
+      summary: Unfollow user
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: No Content }
+        '401': { description: Unauthorized }
+        '404': { description: Not followed }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /subscriptions:
+    get:
+      tags: [ feed ]
+      security:
+        - jwt_auth: [ ]
+      summary: List users I follow
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRefsPage'
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /subscribers:
+    get:
+      tags: [ feed ]
+      security:
+        - jwt_auth: [ ]
+      summary: List my subscribers
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRefsPage'
+        '401': { description: Unauthorized }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /media:
+    post:
+      tags: [ publication ]
+      security:
+        - jwt_auth: [ ]
+      summary: Upload media file
+      description: Загрузка фото (jpeg/png) через multipart/form-data. Возвращает URL.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ file ]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUploadResponse'
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '413': { description: Payload Too Large }
+        '415': { description: Unsupported Media Type }
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+
+
+components:
+
+  securitySchemes:
+    jwt_auth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    Reaction:
+      type: object
+      properties:
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+        avatar_url: { type: string, maxLength: 256 }
+        type: { type: integer, enum: [ 1,2,3 ] }
+        created_at: { type: string, format: date-time }
+
+    ReactionsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Reaction' }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+
+    ReactionSummary:
+      type: object
+      properties:
+        post_id: { type: string, format: uuid }
+        counts:
+          type: object
+          properties:
+            '1': { type: integer, description: likes/heart/etc }
+            '2': { type: integer }
+            '3': { type: integer }
+        my_reaction:
+          type: integer
+          nullable: true
+          description: "null | 1 | 2 | 3"
+
+    AuthLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, maxLength: 128 }
+        password: { type: string, format: password, maxLength: 256 }
+
+    AuthRefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    AuthLoginResponse:
+      type: object
+      properties:
+        access_token:  { type: string }
+        refresh_token: { type: string }
+        token_type:    { type: string, example: Bearer }
+        expires_in:    { type: integer, example: 900 }
+
+    Publication:
+      type: object
+      properties:
+        id:       { type: string, format: uuid }
+        user_id:  { type: integer, format: int64 }
+        geo:
+          type: object
+          properties:
+            lat: { type: number, format: double }
+            lon: { type: number, format: double }
+        describe:      { type: string, maxLength: 2048 }
+        photo:         { type: string, maxLength: 256, description: link to photo }
+        created_at:    { type: string, format: date-time }
+        updated_at:    { type: string, format: date-time }
+        counters:
+          type: object
+          properties:
+            likes:    { type: integer, format: int32 }
+            comments: { type: integer, format: int32 }
+        reactions:
+            $ref: '#/components/schemas/ReactionBreakdown'
+
+    Comment:
+      type: object
+      properties:
+        comment_id: { type: string, format: uuid }
+        post_id:    { type: string, format: uuid }
+        author_id:  { type: integer, format: int64 }
+        text:       { type: string, maxLength: 1024 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PublicationCreate:
+      type: object
+      required: [ geo, describe, photo ]
+      properties:
+        geo:
+          type: object
+          required: [ lat, lon ]
+          properties:
+            lat: { type: number, format: double }
+            lon: { type: number, format: double }
+        describe:
+          type: string
+          maxLength: 2048
+        photo:
+          type: string
+          maxLength: 256
+          description: Link to photo
+
+    PublicationUpdate:
+      type: object
+      properties:
+        geo:
+          type: object
+          properties:
+            lat: { type: number, format: double }
+            lon: { type: number, format: double }
+        describe:
+          type: string
+          maxLength: 2048
+        photo:
+          type: string
+          maxLength: 256
+
+    FeedItem:
+      type: object
+      properties:
+        post_id: { type: string, format: uuid }
+        author:
+          type: object
+          properties:
+            id:         { type: integer, format: int64 }
+            username:   { type: string }
+            avatar_url: { type: string, maxLength: 256 }
+            is_followed: { type: boolean }
+        geo:
+          type: object
+          properties:
+            lat: { type: number, format: double }
+            lon: { type: number, format: double }
+        describe:       { type: string, maxLength: 2048 }
+        photo_preview:  { type: string, maxLength: 256 }
+        created_at:     { type: string, format: date-time }
+        counters:
+          type: object
+          properties:
+            likes:    { type: integer, format: int32 }
+            comments: { type: integer, format: int32 }
+        my_reaction:
+          type: integer
+          nullable: true
+          description: "null | 1 | 2 | 3"
+        reactions:
+          $ref: '#/components/schemas/ReactionBreakdown'
+    CommentCreate:
+      type: object
+      required: [ post_id, text ]
+      properties:
+        post_id:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 1024
+
+    CommentUpdate:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 1024
+
+    FeedPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FeedItem' }
+        limit:  { type: integer }
+        offset: { type: integer }
+
+    MediaUploadResponse:
+      type: object
+      properties:
+        media_id: { type: string, format: uuid }
+        url: { type: string, maxLength: 256 }
+    UserRef:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        avatar_url: { type: string, maxLength: 256 }
+
+    UserRefsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/UserRef' }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+    Error:
+      type: object
+      properties:
+        code: { type: string, example: INTERNAL_ERROR }
+        message: { type: string, example: Unexpected error }
+        trace_id: { type :string, description: Корреляция для логов }
+    ReactionBreakdown:
+      type: object
+      properties:
+        counts:
+          type: object
+          properties:
+            '1': { type: integer, description: like/heart }
+            '2': { type: integer }
+            '3': { type: integer }
+        my_reaction:
+          type: integer
+          nullable: true
+          description: "null | 1 | 2 | 3"

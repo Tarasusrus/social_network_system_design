@@ -1,0 +1,83 @@
+Table follows {
+  following_user_id integer [not null, ref: > users.id]
+  followed_user_id  integer [not null, ref: > users.id]
+  created_at timestamptz [not null, default: 'now()']
+
+  Note: 'Подписки: один фоллов за пару пользователей'
+  Indexes {
+    (following_user_id, followed_user_id) [unique, name: 'uniq_follow_pair']
+  }
+}
+
+Table users {
+  id integer [pk, increment]
+  username varchar [not null, unique]
+  email varchar(256) [not null, unique]
+  password_hash varchar(256) [not null]
+  created_at timestamptz [not null, default: 'now()']
+}
+
+Table posts {
+  id        uuid [pk, default: 'gen_random_uuid()']
+  title     varchar(256)
+  describe  varchar(2048) [not null]
+  user_id   integer [not null, ref: > users.id]
+  lat       double
+  lon       double
+  photo     varchar(256)
+  created_at timestamptz [not null, default: 'now()']
+  updated_at timestamptz
+
+  Note: 'Для гео-валидации (-90..90, -180..180) DBML не умеет CHECK — валидируй на уровне БД/приложения.'
+  Indexes {
+    (user_id, created_at)
+    created_at
+  }
+}
+
+Table comments {
+  id        uuid [pk, default: 'gen_random_uuid()']
+  post_id   uuid [not null, ref: > posts.id]
+  author_id integer [not null, ref: > users.id]
+  message   varchar(1024) [not null]
+  created_at timestamptz [not null, default: 'now()']
+  updated_at timestamptz
+
+  Indexes {
+    (post_id, created_at)
+  }
+}
+
+Table reactions {
+  post_id   uuid [not null, ref: > posts.id, pk]
+  user_id   integer [not null, ref: > users.id, pk]
+  type      smallint [not null] // 1,2,3
+  created_at timestamptz [not null, default: 'now()']
+
+  Indexes {
+    post_id
+    (post_id, type)
+  }
+}
+
+Table post_counters {
+  post_id   uuid [pk, ref: > posts.id]
+  likes     int [not null, default: 0]
+  comments  int [not null, default: 0]
+  updated_at timestamptz [not null, default: 'now()']
+  Note: 'денормализация'
+}
+
+Table media {
+  id        uuid [pk, default: 'gen_random_uuid()']
+  owner_id  integer [not null, ref: > users.id]
+  url       varchar(512) [not null]
+  mime      varchar(64)
+  size_bytes bigint
+  width     int
+  height    int
+  sha256    varchar(64)
+  created_at timestamptz [not null, default: 'now()']
+
+  Note: 'нужно будет заменить ссылки'
+}

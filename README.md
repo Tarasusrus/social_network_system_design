@@ -125,13 +125,13 @@ feed:
     Disks_for_iops = 579 / 100 = 6
     rf = 18 дисков 
     disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)
-feeds(media): 
-    capacity = 54.75 PB 
-    Disks_for_capacity = 54.75 / 100 = 548
-    Disks_for_throughput = 1737  / 500 MB/s = 4 
-    Disks_for_iops = 579 / 1000 = 1
-    rf = 1644 диска
-    disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)      
+feeds(media):  
+    capacity = 54.75 PB  
+    Disks_for_capacity = 54.75 PB / 100 TB = 548  
+    Disks_for_throughput = 1737 MB/s / 500 MB/s = 4  
+    Disks_for_iops = 579 / 1000 = 1  
+    rf = 548 * 2 = 1096 дисков (Replication Factor = 2)  
+    disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)    
 poosts:
     capacity = 4.4 * 1.6 TB 
     Disks_for_capacity = 1.6 / 2 = 1
@@ -168,3 +168,22 @@ reactions:
 
 - **Партиционирование** — применить внутреннее **RANGE-партиционирование по полю `created_at`** для таблиц  
   `posts`, `comments`, `reactions`, `media` (ежемесячные партиции для ускорения запросов и упрощения архивации).
+
+### 🧮 Расчёт количества хостов
+
+| Подсистема      | Всего дисков (rf) | Дисков на хост | Расчёт             | Хостов |
+|-----------------|------------------:|---------------:|--------------------|-------:|
+| **posts**       |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **comments**    |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **reactions**   |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **feed**        |                18 |             10 | ceil(18/10) = 2    |  **2** |
+| **feeds(media)**|              1096 |             24 | ceil(1096/24) = 46 | **69** |
+| **posts(media)**|                12 |             10 | ceil(12/10) = 2    |  **2** |
+
+---
+
+**Итого:**
+- Хостов для баз данных (posts, comments, reactions): **3**
+- Хостов для медиа-хранилища: **48**
+- **Всего: ~51 хост**
+

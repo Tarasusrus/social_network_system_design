@@ -109,3 +109,134 @@
 }
 
 ```
+
+### Модель хранения данных
+![модель](/diagrams/ССДП_1.svg)
+#### Расчет сколько потребуется дисков для хранения и обработки всех данных приложения на 1 год
+
+
+```
+Replicatio Factor = 3 
+Service operation time = 1 years
+
+feed:
+    Disks_for_capacity = 0 (лента не хранит)
+    Disks_for_throughput = 18 MB/S / 100 MB/S = 1 
+    Disks_for_iops = 579 / 100 = 6
+    rf = 18 дисков 
+    disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)
+feeds(media):  
+    capacity = 54.75 PB  
+    Disks_for_capacity = 54.75 PB / 100 TB = 548  
+    Disks_for_throughput = 1737 MB/s / 500 MB/s = 4  
+    Disks_for_iops = 579 / 1000 = 1  
+    rf = 548 * 2 = 1096 дисков (Replication Factor = 2)  
+    disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)    
+poosts:
+    capacity = 4.4 * 1.6 TB 
+    Disks_for_capacity = 1.6 / 2 = 1
+    Disks_for_throughput = 51KB/s / 100 MB/s = 1 
+    Disks_for_iops = 12/ 100 = 1
+    rf = 3 диска
+    disk = SSD (NVMe) 30 ТБ (10 000 IOPS, 3 ГБ/с)
+poosts(media):
+    capacity = 365 TB 
+    Disks_for_capacity = 4
+    Disks_for_throughput = 1
+    Disks_for_iops = 1
+    rf = 12 диска
+    disk = HDD 32 ТБ (100 IOPS, 100 МБ/с)  
+    
+comments: 
+    capacity = 1.3 TB 
+    Disks_for_capacity = 1.3 / 2 = 1
+    Disks_for_throughput = 42KB/s / 100 MB/s = 1 
+    Disks_for_iops = 21/ 100 = 1
+    rf = 3 диска
+    disk = SSD (NVMe) 30 ТБ (10 000 IOPS, 3 ГБ/с)   
+    
+reactions: 
+    capacity = 0.065 TB 
+    Disks_for_capacity = 0.065 / 2 = 1
+    Disks_for_throughput = 2KB/s / 100 MB/s = 1 
+    Disks_for_iops = 52/ 100 = 1
+    rf = 3 диска
+    disk = SSD (NVMe) 30 ТБ (10 000 IOPS, 3 ГБ/с)     
+```
+
+### Партиционирование
+
+- **Партиционирование** — применить внутреннее **RANGE-партиционирование по полю `created_at`** для таблиц  
+  `posts`, `comments`, `reactions`, `media` (ежемесячные партиции для ускорения запросов и упрощения архивации).
+
+### 🧮 Расчёт количества хостов
+
+| Подсистема      | Всего дисков (rf) | Дисков на хост | Расчёт             | Хостов |
+|-----------------|------------------:|---------------:|--------------------|-------:|
+| **posts**       |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **comments**    |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **reactions**   |                 3 |              4 | ceil(3/4) = 1      |  **1** |
+| **feed**        |                18 |             10 | ceil(18/10) = 2    |  **2** |
+| **feeds(media)**|              1096 |             24 | ceil(1096/24) = 46 | **69** |
+| **posts(media)**|                12 |             10 | ceil(12/10) = 2    |  **2** |
+
+---
+
+**Итого:**
+- Хостов для баз данных (posts, comments, reactions): **3**
+- Хостов для медиа-хранилища: **48**
+- **Всего: ~51 хост**
+
+# C4 Architecture Overview — "Социальная сеть путешественников (ССДП)"
+
+## Level 1 — System Context
+**Цель:** показать пользователя, систему и внешние зависимости.
+
+- Путешественник создаёт посты, ставит лайки, комментирует и просматривает ленту.
+- Система ССДП взаимодействует с:
+  - **CDN / Object Storage** — хранение изображений и превью.
+  - **Telegram API** — уведомления о новых событиях.
+  - **Geo API** — получение геолокаций и популярных мест.
+
+![C4 Level 1](./diagrams/с4_level1.png)
+
+---
+
+## Level 2 — Container Diagram
+**Цель:** показать внутренние сервисы и хранилища.
+
+- `API Gateway` маршрутизирует запросы.
+- `Auth Service` отвечает за авторизацию и JWT.
+- `Feed`, `Publication`, `Reaction`, `Comment` — отдельные сервисы с CRUD и бизнес-логикой.
+- `Notification Service` отправляет события в Telegram.
+- Данные хранятся в `Main DB (PostgreSQL)` и `Media Storage (S3/CDN)`.
+
+![C4 Level 2](./diagrams/с4_level2.png)
+
+---
+
+## Level 3 — Component Diagram (Auth Service)
+**Цель:** детализировать внутреннюю структуру Auth-сервиса.
+
+- `Auth API` — REST эндпоинты `/auth/*`.
+- `Auth Core` — бизнес-логика логина, refresh, logout.
+- `Token Manager` — JWT и refresh-токены (Redis).
+- `User Repository` — работа с таблицей `users`.
+- `Password Hasher` — валидация пароля через `bcrypt/argon2`.
+
+Внешние зависимости: `Redis` и `PostgreSQL`.
+
+![C4 Level 3](./diagrams/с4_level3.png)
+
+---
+
+## Level 4 — Code Diagram (Auth Service)
+**Цель:** отразить структуру пакетов реализации на Go.
+
+- `api` — REST эндпоинты.
+- `service` — бизнес-логика.
+- `repository` — доступ к БД через pgx/goqu.
+- `security` — JWT и хэширование паролей.
+- `model` — DTO и доменные структуры.
+
+![C4 Level 4](./diagrams/с4_level4.png)

@@ -187,3 +187,56 @@ reactions:
 - Хостов для медиа-хранилища: **48**
 - **Всего: ~51 хост**
 
+# C4 Architecture Overview — "Социальная сеть путешественников (ССДП)"
+
+## Level 1 — System Context
+**Цель:** показать пользователя, систему и внешние зависимости.
+
+- Путешественник создаёт посты, ставит лайки, комментирует и просматривает ленту.
+- Система ССДП взаимодействует с:
+  - **CDN / Object Storage** — хранение изображений и превью.
+  - **Telegram API** — уведомления о новых событиях.
+  - **Geo API** — получение геолокаций и популярных мест.
+
+![C4 Level 1](./diagrams/с4_level1.png)
+
+---
+
+## Level 2 — Container Diagram
+**Цель:** показать внутренние сервисы и хранилища.
+
+- `API Gateway` маршрутизирует запросы.
+- `Auth Service` отвечает за авторизацию и JWT.
+- `Feed`, `Publication`, `Reaction`, `Comment` — отдельные сервисы с CRUD и бизнес-логикой.
+- `Notification Service` отправляет события в Telegram.
+- Данные хранятся в `Main DB (PostgreSQL)` и `Media Storage (S3/CDN)`.
+
+![C4 Level 2](./diagrams/с4_level2.png)
+
+---
+
+## Level 3 — Component Diagram (Auth Service)
+**Цель:** детализировать внутреннюю структуру Auth-сервиса.
+
+- `Auth API` — REST эндпоинты `/auth/*`.
+- `Auth Core` — бизнес-логика логина, refresh, logout.
+- `Token Manager` — JWT и refresh-токены (Redis).
+- `User Repository` — работа с таблицей `users`.
+- `Password Hasher` — валидация пароля через `bcrypt/argon2`.
+
+Внешние зависимости: `Redis` и `PostgreSQL`.
+
+![C4 Level 3](./diagrams/с4_level3.png)
+
+---
+
+## Level 4 — Code Diagram (Auth Service)
+**Цель:** отразить структуру пакетов реализации на Go.
+
+- `api` — REST эндпоинты.
+- `service` — бизнес-логика.
+- `repository` — доступ к БД через pgx/goqu.
+- `security` — JWT и хэширование паролей.
+- `model` — DTO и доменные структуры.
+
+![C4 Level 4](./diagrams/с4_level4.png)
